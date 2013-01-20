@@ -76,10 +76,12 @@ static const uint8_t PROGMEM device_descriptor[] = {
 };
 
 // Keyboard Protocol 1, HID 1.11 spec, Appendix B, page 59-60
+// if you change the number of bytes here, also change the KEYBOARD_ defines in usb_private.h
 static const uint8_t PROGMEM keyboard_hid_report_desc[] = {
         0x05, 0x01,             //  Usage Page (Generic Desktop),
         0x09, 0x06,             //  Usage (Keyboard),
         0xA1, 0x01,             //  Collection (Application),
+
         0x75, 0x01,             //  Report Size (1),
         0x95, 0x08,             //  Report Count (8),
         0x05, 0x07,             //  Usage Page (Key Codes),
@@ -88,37 +90,51 @@ static const uint8_t PROGMEM keyboard_hid_report_desc[] = {
         0x15, 0x00,             //  Logical Minimum (0),
         0x25, 0x01,             //  Logical Maximum (1),
         0x81, 0x02,             //  Input (Data, Variable, Absolute), ;Modifier byte
-        0x95, 0x08,             //  Report Count (8),
+
+        0x95, 0x01,             //  Report Count (1),
+        0x75, 0x08,             //  Report Size (8),
+        0x15, 0x00,		//  Logical Minimum (0),
+        0x25, 0xFF, 		//  Logical Maximum (0xFF),
+        0x05, 0x0C,             //  Usage Page (Consumer),
+        0x19, 0x00,          	//  Usage Minimum (0),
+        0x29, 0xFF, 		//  Usage Maximum (0xFF),
+        0x81, 0x00,             //  Input (Data, Array), ;Media keys
+
+	0x95, 0x08,             //  Report Count (8),
         0x75, 0x01,             //  Report Size (1),
         0x15, 0x00,		//  Logical Minimum (0),
         0x25, 0x01,             //  Logical Maximum (1),
         0x05, 0x0C,             //  Usage Page (Consumer),
-	0x09, 0xE9,		//  Usage (Volume Increment),
-	0x09, 0xEA,		//  Usage (Volume Decrement),
-	0x09, 0xE2,		//  Usage (Mute),
-	0x09, 0xCD,		//  Usage (Play/Pause),
-	0x09, 0xB5,		//  Usage (Scan Next Track),
-	0x09, 0xB6,		//  Usage (Scan Previous Track),
-	0x09, 0xB7,		//  Usage (Stop),
-	0x09, 0xB8,		//  Usage (Eject),
+	0x0A, 0x8a, 0x1,	//  Usage (Email Reader)
+	0x0A, 0x8c, 0x1,        //  Usage (Voicemail)
+	0x0A, 0x8d, 0x1,	//  Usage (Contacts)
+	0x0A, 0x8e, 0x1,	//  Usage (Calendar)
+	0x0A, 0xb7, 0x1,	//  Usage (Music)
+        0x0A, 0xbc, 0x1,	//  Usage (Instant Messaging)
+	0x0A, 0x21, 0x2,	//  Usage (Search)
+	0x0A, 0x23, 0x2,	//  Usage (Home)
         0x81, 0x02,             //  Input (Data, Variable, Absolute), ;Media keys
+
         0x95, 0x05,             //  Report Count (5),
         0x75, 0x01,             //  Report Size (1),
         0x05, 0x08,             //  Usage Page (LEDs),
         0x19, 0x01,             //  Usage Minimum (1),
         0x29, 0x05,             //  Usage Maximum (5),
         0x91, 0x02,             //  Output (Data, Variable, Absolute), ;LED report
+
         0x95, 0x01,             //  Report Count (1),
         0x75, 0x03,             //  Report Size (3),
         0x91, 0x03,             //  Output (Constant),                 ;LED report padding
-        0x95, 0x06,             //  Report Count (6),
+
+        0x95, 0x05,             //  Report Count (5),
         0x75, 0x08,             //  Report Size (8),
         0x15, 0x00,             //  Logical Minimum (0),
-        0x25, 0x7F,             //  Logical Maximum(104),
+        0x25, 0xFF,             //  Logical Maximum(255),
         0x05, 0x07,             //  Usage Page (Key Codes),
         0x19, 0x00,             //  Usage Minimum (0),
-        0x29, 0x7F,             //  Usage Maximum (104),
+        0x29, 0xFF,             //  Usage Maximum (255),
         0x81, 0x00,             //  Input (Data, Array),		;Normal keys
+
         0xc0			// End Collection
 };
 
@@ -428,9 +444,11 @@ volatile uint8_t debug_flush_timer USBSTATE;
 // byte0: which modifier keys are currently pressed
 //  1=left ctrl,    2=left shift,   4=left alt,    8=left gui
 //  16=right ctrl, 32=right shift, 64=right alt, 128=right gui
-// byte1: media keys (TODO: document these)
-// bytes2-7: which keys are currently pressed, up to 6 keys may be down at once
-uint8_t keyboard_report_data[8] USBSTATE;
+// byte1: media keys from the 0xc page
+// byte2: media keys from the 0xc page with keycode values above 0xff
+// bytes3-7: which keys are currently pressed, up to 5 keys may be down at once
+// see also: KEYBOARD_ defines in usb_private.h
+uint8_t keyboard_report_data[KEYBOARD_BUFFER_SIZE] USBSTATE;
 
 // protocol setting from the host.  We use exactly the same report
 // either way, so this variable only stores the setting since we

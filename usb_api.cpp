@@ -154,17 +154,19 @@ KEYCODE_TYPE usb_keyboard_class::deadkey_to_keycode(KEYCODE_TYPE keycode)
 //
 void usb_keyboard_class::write_key(KEYCODE_TYPE keycode)
 {
-	keyboard_report_data[0] = keycode_to_modifier(keycode);
-	keyboard_report_data[1] = 0;
-	keyboard_report_data[2] = keycode_to_key(keycode);
-	keyboard_report_data[3] = 0;
-	keyboard_report_data[4] = 0;
-	keyboard_report_data[5] = 0;
-	keyboard_report_data[6] = 0;
-	keyboard_report_data[7] = 0;
+	uint8_t i;
+
+	keyboard_report_data[KEYBOARD_MODIFIER_OFFSET] = keycode_to_modifier(keycode);
+	keyboard_report_data[KEYBOARD_KEYS_OFFSET] = keycode_to_key(keycode);
+	for(i = KEYBOARD_MEDIA_OFFSET; i <= KEYBOARD_MEDIA_MAX; i++) {
+		keyboard_report_data[i] = 0;
+	}
+	for(i = KEYBOARD_KEYS_OFFSET+1; i <= KEYBOARD_KEYS_MAX; i++) {
+		keyboard_report_data[i] = 0;
+	}
 	send_now();
-	keyboard_report_data[0] = 0;
-	keyboard_report_data[2] = 0;
+	keyboard_report_data[KEYBOARD_MODIFIER_OFFSET] = 0;
+	keyboard_report_data[KEYBOARD_KEYS_OFFSET] = 0;
 	send_now();
 }
 
@@ -197,41 +199,76 @@ uint8_t usb_keyboard_class::keycode_to_key(KEYCODE_TYPE keycode)
 
 void usb_keyboard_class::set_modifier(uint8_t c)
 {
-	keyboard_report_data[0] = c;
+	keyboard_report_data[KEYBOARD_MODIFIER_OFFSET] = c;
 }
 void usb_keyboard_class::set_key1(uint8_t c)
 {
-	keyboard_report_data[2] = c;
+	keyboard_report_data[KEYBOARD_KEYS_OFFSET] = c;
 }
 void usb_keyboard_class::set_key2(uint8_t c)
 {
-	keyboard_report_data[3] = c;
+	keyboard_report_data[KEYBOARD_KEYS_OFFSET+1] = c;
 }
 void usb_keyboard_class::set_key3(uint8_t c)
 {
-	keyboard_report_data[4] = c;
+	keyboard_report_data[KEYBOARD_KEYS_OFFSET+2] = c;
 }
 void usb_keyboard_class::set_key4(uint8_t c)
 {
-	keyboard_report_data[5] = c;
+	keyboard_report_data[KEYBOARD_KEYS_OFFSET+3] = c;
 }
 void usb_keyboard_class::set_key5(uint8_t c)
 {
-	keyboard_report_data[6] = c;
+	keyboard_report_data[KEYBOARD_KEYS_OFFSET+4] = c;
 }
-void usb_keyboard_class::set_key6(uint8_t c)
+/*void usb_keyboard_class::set_key6(uint8_t c)
 {
-	keyboard_report_data[7] = c;
-}
-void usb_keyboard_class::set_media(uint8_t c)
+	keyboard_report_data[KEYBOARD_KEYS_OFFSET+5] = c;
+} */
+void usb_keyboard_class::set_media(uint16_t c)
 {
-	keyboard_report_data[1] = c;
+	if(c == 0) {
+		keyboard_report_data[KEYBOARD_MEDIA_OFFSET] = 0;
+		keyboard_report_data[KEYBOARD_MEDIA_MAX] = 0;
+	} else if(c <= 0xFF) {
+		keyboard_report_data[KEYBOARD_MEDIA_OFFSET] = c;
+		keyboard_report_data[KEYBOARD_MEDIA_MAX] = 0;
+	} else if(c > 0x100) {
+		keyboard_report_data[KEYBOARD_MEDIA_OFFSET] = 0;
+
+		switch(c) {
+			case 0x18a:
+				keyboard_report_data[KEYBOARD_MEDIA_MAX] = 0b00000001;
+				break;
+			case 0x18c:
+				keyboard_report_data[KEYBOARD_MEDIA_MAX] = 0b00000010;
+				break;
+			case 0x18d:
+				keyboard_report_data[KEYBOARD_MEDIA_MAX] = 0b00000100;
+				break;
+			case 0x18e:
+				keyboard_report_data[KEYBOARD_MEDIA_MAX] = 0b00001000;
+				break;
+			case 0x1b7:
+				keyboard_report_data[KEYBOARD_MEDIA_MAX] = 0b00010000;
+				break;
+			case 0x1bc:
+				keyboard_report_data[KEYBOARD_MEDIA_MAX] = 0b00100000;
+				break;
+			case 0x221:
+				keyboard_report_data[KEYBOARD_MEDIA_MAX] = 0b01000000;
+				break;
+			case 0x223:
+				keyboard_report_data[KEYBOARD_MEDIA_MAX] = 0b10000000;
+				break;
+		}
+	}
 }
 
 
 void usb_keyboard_class::send_now(void)
 {
-        uint8_t intr_state, timeout;
+        uint8_t intr_state, timeout, i;
 
         if (!usb_configuration) return;
         intr_state = SREG;
@@ -251,14 +288,9 @@ void usb_keyboard_class::send_now(void)
                 cli();
                 UENUM = KEYBOARD_ENDPOINT;
         }
-        UEDATX = keyboard_report_data[0];
-        UEDATX = keyboard_report_data[1];
-        UEDATX = keyboard_report_data[2];
-        UEDATX = keyboard_report_data[3];
-        UEDATX = keyboard_report_data[4];
-        UEDATX = keyboard_report_data[5];
-        UEDATX = keyboard_report_data[6];
-        UEDATX = keyboard_report_data[7];
+	for(i = 0; i < KEYBOARD_BUFFER_SIZE; i++) {
+	        UEDATX = keyboard_report_data[i];
+	}
         UEINTX = 0x3A;
         keyboard_idle_count = 0;
         SREG = intr_state;
@@ -286,9 +318,9 @@ void usb_keyboard_class::press(uint16_t n)
 	#ifdef DEADKEYS_MASK
 	KEYCODE_TYPE deadkeycode = deadkey_to_keycode(keycode);
 	if (deadkeycode) {
-		modrestore = keyboard_report_data[0];
+		modrestore = keyboard_report_data[KEYBOARD_MODIFIER_OFFSET];
 		if (modrestore) {
-			keyboard_report_data[0] = 0;
+			keyboard_report_data[KEYBOARD_MODIFIER_OFFSET] = 0;
 			send_now();
 		}
 		// TODO: test if operating systems recognize
@@ -333,16 +365,16 @@ void usb_keyboard_class::presskey(uint8_t key, uint8_t modifier)
 	uint8_t i;
 
 	if (modifier) {
-		if ((keyboard_report_data[0] & modifier) != modifier) {
-			keyboard_report_data[0] |= modifier;
+		if ((keyboard_report_data[KEYBOARD_MODIFIER_OFFSET] & modifier) != modifier) {
+			keyboard_report_data[KEYBOARD_MODIFIER_OFFSET] |= modifier;
 			send_required = true;
 		}
 	}
 	if (key) {
-		for (i=2; i < 8; i++) {
+		for (i=KEYBOARD_KEYS_OFFSET; i <= KEYBOARD_KEYS_MAX; i++) {
 			if (keyboard_report_data[i] == key) goto end;
 		}
-		for (i=2; i < 8; i++) {
+		for (i=KEYBOARD_KEYS_OFFSET; i <= KEYBOARD_KEYS_MAX; i++) {
 			if (keyboard_report_data[i] == 0) {
 				keyboard_report_data[i] = key;
 				send_required = true;
@@ -360,13 +392,13 @@ void usb_keyboard_class::releasekey(uint8_t key, uint8_t modifier)
 	uint8_t i;
 
 	if (modifier) {
-		if ((keyboard_report_data[0] & modifier) != 0) {
-			keyboard_report_data[0] &= ~modifier;
+		if ((keyboard_report_data[KEYBOARD_MODIFIER_OFFSET] & modifier) != 0) {
+			keyboard_report_data[KEYBOARD_MODIFIER_OFFSET] &= ~modifier;
 			send_required = true;
 		}
 	}
 	if (key) {
-		for (i=2; i < 8; i++) {
+		for (i=KEYBOARD_KEYS_OFFSET; i <= KEYBOARD_KEYS_MAX; i++) {
 			if (keyboard_report_data[i] == key) {
 				keyboard_report_data[i] = 0;
 				send_required = true;
@@ -378,15 +410,13 @@ void usb_keyboard_class::releasekey(uint8_t key, uint8_t modifier)
 
 void usb_keyboard_class::releaseAll(void)
 {
-	uint8_t i, anybits;
+	uint8_t i, anybits = 0;
 
-	anybits = keyboard_report_data[0];
-	for (i=2; i < 8; i++) {
+	for (i=0; i < KEYBOARD_BUFFER_SIZE; i++) {
 		anybits |= keyboard_report_data[i];
 		keyboard_report_data[i] = 0;
 	}
 	if (!anybits) return;
-	keyboard_report_data[0] = 0;
 	send_now();
 }
 

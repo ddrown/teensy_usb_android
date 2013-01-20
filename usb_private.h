@@ -65,6 +65,14 @@ extern "C"{
 #define KEYBOARD_BUFFER		EP_DOUBLE_BUFFER
 #define KEYBOARD_INTERVAL	1
 
+// defines for keyboard_report_data
+#define KEYBOARD_MODIFIER_OFFSET	0
+#define KEYBOARD_MEDIA_OFFSET		1
+#define KEYBOARD_MEDIA_MAX		2
+#define KEYBOARD_KEYS_OFFSET		3
+#define KEYBOARD_KEYS_MAX		7
+#define KEYBOARD_BUFFER_SIZE		8
+
 #define MOUSE_INTERFACE		1
 #define MOUSE_ENDPOINT		4
 #define MOUSE_SIZE		8
